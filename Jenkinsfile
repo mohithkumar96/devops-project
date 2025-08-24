@@ -2,9 +2,11 @@ pipeline {
     agent any
     environment {
         // Define environment variables
-        DOCKER_IMAGE = "my-app:latest"
+        DOCKER_IMAGE = ""mohithkumar96/devops-app""
         KUBECONFIG_FILE = credentials('kubeconfig')  // Jenkins credential with kubeconfig
         GIT_CREDENTIALS = credentials('Git')     // GitHub credentials
+        DOCKER_USER = "mohithkumar96"
+        DOCKER_PASS = "dckr_pat_tLTlPEGLKJctsi0_83V7nE4ksLM"
     }
     stages {
         stage('Code Checkout') {
@@ -32,7 +34,8 @@ pipeline {
                 script {
                     def imageTag = "${DOCKER_IMAGE}:${env.BUILD_NUMBER}"
                     sh """
-                        docker build -t ${imageTag} ./app
+                        docker build -t ${imageTag} -f app/Dockerfile app
+                        docker login -u $DOCKER_USER -p $DOCKER_PASS
                         docker push ${imageTag}
                     """
                 }
