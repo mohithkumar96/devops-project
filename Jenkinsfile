@@ -2,7 +2,7 @@ pipeline {
     agent any
     environment {
         // Define environment variables
-        DOCKER_IMAGE = "mohithkumar96/devops-app"
+        DOCKER_IMAGE = "mohithkumar96/devops-app:latest"
         KUBECONFIG_FILE = credentials('kubeconfig')  // Jenkins credential with kubeconfig
         DOCKER_USER = "mohithkumar96"
         DOCKER_PASS = "dckr_pat_tLTlPEGLKJctsi0_83V7nE4ksLM"
@@ -33,8 +33,7 @@ pipeline {
                 script {
                     sh """
                     docker login -u $DOCKER_USER -p $DOCKER_PASS
-                    docker build -t ${DOCKER_IMAGE}:${env.BUILD_NUMBER} -f Devops-App/Dockerfile Devops-App
-                    docker push ${DOCKER_IMAGE}:${env.BUILD_NUMBER}
+                    sh "docker pull ${DOCKER_IMAGE}"
                     """
                 }
             }
