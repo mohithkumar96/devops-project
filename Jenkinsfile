@@ -20,75 +20,56 @@ pipeline {
         }
 
         stage('Terraform Static Analysis') {
+            agent { docker { image 'aquasec/tfsec:latest' } }
             steps {
-                echo 'Running Terraform static code analysis...'
-                sh '''
-                    if ! command -v tfsec &> /dev/null; then
-                        echo "tfsec not installed. Skipping static analysis."
-                    else
-                        tfsec ./terraform
-                    fi
-                '''
+                sh 'tfsec ./terraform'
             }
         }
 
         stage('Docker Build & Push') {
+            agent { docker { image 'mohithkumar96/devops-app' } }
             steps {
-                echo 'Building Docker image...'
-                sh '''
-                    if ! command -v docker &> /dev/null; then
-                        echo "Docker CLI not found. Skipping Docker build."
-                    else
-                        docker build -t ${DOCKER_IMAGE} .
-                        docker push ${DOCKER_IMAGE}
-                    fi
-                '''
+                sh """
+                docker build -t ${IMAGE_NAME} .
+                docker login -u <docker-username> -p <docker-password>
+                docker push ${IMAGE_NAME}
+                """
             }
         }
 
         stage('Image Security Scan') {
+            agent { docker { image 'aquasec/trivy:latest' } }
             steps {
-                echo 'Running Trivy image scan...'
-                sh '''
-                    if ! command -v trivy &> /dev/null; then
-                        echo "Trivy not installed. Skipping scan."
-                    else
-                        trivy image --exit-code 1 ${DOCKER_IMAGE} || true
-                    fi
-                '''
+                sh "trivy image ${IMAGE_NAME}"
             }
         }
 
         stage('Deploy to Kubernetes') {
+            agent { docker { image 'bitnami/kubectl:latest' } }
             steps {
-                echo 'Deploying to Kubernetes...'
-                withCredentials([file(credentialsId: "${KUBECONFIG_CRED}", variable: 'KUBECONFIG')]) {
-                    sh '''
-                        kubectl apply -f k8s/deployment.yaml
-                        kubectl rollout status deployment/devops-app
-                    '''
+                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+                    sh 'kubectl apply -f k8s/deployment.yaml'
                 }
             }
         }
 
         stage('Rollback (Optional)') {
+            agent { docker { image 'bitnami/kubectl:latest' } }
             steps {
-                echo 'Rollback stage (manual or scripted)'
-                // Example: sh 'kubectl rollout undo deployment/devops-app'
+                echo 'Rollback stage placeholder'
             }
         }
     }
 
     post {
         always {
-            echo 'Cleaning workspace...'
             cleanWs()
         }
         success {
             echo 'Pipeline completed successfully!'
         }
         failure {
-            echo 'Pipeline failed. Check logs.'
+            echo 'Pipeline failed. Check logs!'
         }
     }
 }
