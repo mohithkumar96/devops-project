@@ -2,16 +2,18 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "mohithkumar96/devops-app:${env.BUILD_NUMBER}"
-        KUBE_CONTEXT = credentials('kube-context') // Jenkins secret credential
+        GIT_CREDENTIALS_ID = 'Git'
+        REPO_URL = 'https://github.com/mohithkumar96/devops-project.git'
+        BRANCH = 'main'
+        KUBE_CONTEXT = credentials('kube-context') // Make sure this exists in Jenkins credentials
+
+        // Docker variables
+        DOCKER_IMAGE = "mohithkumar96/devops-app"
+        DOCKER_TAG = "${env.BUILD_NUMBER}"
     }
 
     stages {
-
         stage('Code Checkout') {
-            agent {
-                docker { image 'alpine/git:latest' }
-            }
             steps {
                 echo "Checking out branch main"
                 git branch: 'main', url: 'https://github.com/mohithkumar96/devops-project.git'
@@ -19,9 +21,6 @@ pipeline {
         }
 
         stage('Static Code Analysis') {
-            agent {
-                docker { image 'aquasec/tfsec:latest' }
-            }
             steps {
                 echo "Running Terraform static code analysis..."
                 sh 'tfsec ./terraform || true'
@@ -29,55 +28,31 @@ pipeline {
         }
 
         stage('Docker Build & Push') {
-            agent {
-                docker { image 'docker:24.0.5-cli' }
-            }
             steps {
                 echo "Building Docker image..."
                 sh """
-                   docker build -t $DOCKER_IMAGE .
-                   docker push $DOCKER_IMAGE
+                   docker build -t mohithkumar96/devops-app:${env.BUILD_NUMBER} .
+                   docker push mohithkumar96/devops-app:${env.BUILD_NUMBER}
                 """
-            }
-        }
-
-        stage('Image Security Scan') {
-            agent {
-                docker { image 'aquasec/trivy:latest' }
-            }
-            steps {
-                echo "Scanning Docker image for vulnerabilities..."
-                sh "trivy image $DOCKER_IMAGE || true"
             }
         }
 
         stage('Deploy to Kubernetes') {
-            agent {
-                docker { image 'bitnami/kubectl:latest' }
-            }
             steps {
                 echo "Deploying to Kubernetes cluster..."
                 sh """
-                   kubectl --kubeconfig=/var/jenkins_home/.kube/config apply -f k8s/
+                   kubectl --context=${KUBE_CONTEXT} apply -f k8s/
                 """
-            }
-        }
-
-        stage('Rollback Capability') {
-            agent {
-                docker { image 'bitnami/kubectl:latest' }
-            }
-            steps {
-                echo "Rollback stage placeholder (manual rollback if needed)"
-                // Helm rollback or git tag-based rollback commands go here
             }
         }
     }
 
     post {
         always {
-            echo "Cleaning workspace..."
-            cleanWs()
+            node { // wrap cleanWs inside node to provide FilePath context
+                echo "Cleaning workspace..."
+                cleanWs()
+            }
         }
     }
 }
