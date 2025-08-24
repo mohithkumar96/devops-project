@@ -3,7 +3,6 @@ pipeline {
     environment {
         // Define environment variables
         DOCKER_IMAGE = "mohithkumar96/devops-app"
-        KUBECONFIG_FILE = credentials('kubeconfig')  // Jenkins credential with kubeconfig
         DOCKER_USER = "mohithkumar96"
         DOCKER_PASS = "dckr_pat_tLTlPEGLKJctsi0_83V7nE4ksLM"
     }
@@ -73,9 +72,13 @@ pipeline {
 
     post {
         always {
-            cleanWs()
+            node {
+                cleanWs()
+            }
         }
         failure {
+            // Uncomment if SMTP is configured
+            /*
             mail to: 'team@example.com',
                  subject: "Jenkins Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                  body: "Check Jenkins for details: ${env.BUILD_URL}"
