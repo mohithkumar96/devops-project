@@ -2,7 +2,7 @@ pipeline {
     agent any
     environment {
         // Define environment variables
-        DOCKER_IMAGE = "hello-world:latest"
+        DOCKER_IMAGE = "mohithkumar96/devops-app:latest"
         KUBECONFIG_FILE = credentials('kubeconfig')  // Jenkins credential with kubeconfig
         DOCKER_USER = "mohithkumar96"
         DOCKER_PASS = "dckr_pat_tLTlPEGLKJctsi0_83V7nE4ksLM"
@@ -28,16 +28,16 @@ pipeline {
             }
         }
 
-        stage('Docker Build & Push') {
-            steps {
-                script {
-                    sh """
-                    docker login -u $DOCKER_USER -p $DOCKER_PASS
-                    docker pull ${DOCKER_IMAGE}
-                    """
-                }
-            }
-        }
+       // stage('Docker Build & Push') {
+         //   steps {
+           //     script {
+             //       sh """
+               //     docker login -u $DOCKER_USER -p $DOCKER_PASS
+                 //   docker pull ${DOCKER_IMAGE}
+                   // """
+               // }
+           // }
+       // }
 
         stage('Image Security Scan') {
             steps {
