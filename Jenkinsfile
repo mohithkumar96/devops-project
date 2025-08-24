@@ -10,8 +10,8 @@ pipeline {
         stage('Code Checkout') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/yourusername/devops-project.git',
-                    credentialsId: "${GIT_CREDENTIALS}"
+                    url: 'https://github.com/mohithkumar96/devops-project.git',
+                    credentialsId: "Git"
             }
         }
 
