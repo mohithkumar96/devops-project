@@ -31,10 +31,10 @@ pipeline {
         stage('Docker Build & Push') {
             steps {
                 script {
-                        image 'mohithkumar96/devops-app:latest'
-                        args '-v /var/run/docker.sock:/var/run/docker.sock'
-                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                        docker push ${imageTag}
+                    sh '''
+                    docker pull mohithkumar96/devops-app:latest
+                    docker run --rm -d --name my-app mohithkumar96/devops-app:latest
+                '''
                 }
             }
         }
