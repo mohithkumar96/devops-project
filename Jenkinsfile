@@ -2,7 +2,7 @@ pipeline {
     agent any
     environment {
         // Define environment variables
-        DOCKER_IMAGE = "myapp:latest ./app"
+        DOCKER_IMAGE = myapp:latest -f app/Dockerfile app
         KUBECONFIG_FILE = credentials('kubeconfig')  // Jenkins credential with kubeconfig
         GIT_CREDENTIALS = credentials('Git')     // GitHub credentials
     }
