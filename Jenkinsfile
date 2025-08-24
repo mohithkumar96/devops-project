@@ -2,7 +2,7 @@ pipeline {
     agent any
     environment {
         // Define environment variables
-        DOCKER_IMAGE = "myapp:latest -f app/Dockerfile app"
+        DOCKER_IMAGE = "myapp:latest"
         KUBECONFIG_FILE = credentials('kubeconfig')  // Jenkins credential with kubeconfig
         GIT_CREDENTIALS = credentials('Git')     // GitHub credentials
     }
@@ -32,7 +32,7 @@ pipeline {
                 script {
                     def imageTag = "${DOCKER_IMAGE}:${env.BUILD_NUMBER}"
                     sh """
-                        docker build -t ${imageTag} .
+                        docker build -t ${DOCKER_IMAGE} ./app
                         docker push ${imageTag}
                     """
                 }
