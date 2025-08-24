@@ -15,6 +15,7 @@ pipeline {
             steps {
                 echo "Checking out branch ${BRANCH_NAME}"
                 git branch: "${BRANCH_NAME}", url: "${REPO_URL}"
+                credentialsId: 'Git'
             }
         }
 
