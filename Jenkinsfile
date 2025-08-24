@@ -33,7 +33,7 @@ pipeline {
                 script {
                     sh """
                     docker login -u $DOCKER_USER -p $DOCKER_PASS
-                    docker build -t ${DOCKER_IMAGE}:${env.BUILD_NUMBER} .
+                    docker build -t ${DOCKER_IMAGE}:${env.BUILD_NUMBER} -f Devops-App/Dockerfile Devops-App
                     docker push ${DOCKER_IMAGE}:${env.BUILD_NUMBER}
                     """
                 }
