@@ -3,8 +3,8 @@ pipeline {
     environment {
         // Define environment variables
         DOCKER_IMAGE = "mohithkumar96/devops-app"
-        KUBE_CONTEXT = KUBE-CONFIG  // Jenkins credential with kubeconfig
-        GIT_CREDENTIALS = Github-pat      // GitHub credentials
+        KUBECONFIG_FILE = credentials('kubeconfig')  // Jenkins credential with kubeconfig
+        GIT_CREDENTIALS = credentials('Git')     // GitHub credentials
     }
     stages {
         stage('Code Checkout') {
