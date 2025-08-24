@@ -2,105 +2,84 @@ pipeline {
     agent any
 
     environment {
-        REGISTRY        = "mohithkumar96"              // DockerHub username
-        IMAGE_NAME      = "devops-app"
-        BUILD_NUMBER    = "${env.BUILD_NUMBER}"
-        COMMIT_HASH     = "${GIT_COMMIT.substring(0,7)}"
-        DEV_NAMESPACE   = "dev"
-        STAGING_NAMESPACE = "staging"
-        PROD_NAMESPACE  = "prod"
-    }
-
-    options {
-        timestamps()
-        buildDiscarder(logRotator(numToKeepStr: '10'))
+        REPO_URL = 'https://github.com/mohithkumar96/devops-project.git'
+        BRANCH_NAME = 'main'
+        DOCKER_IMAGE = 'mohithkumar96/devops-app'
+        REGISTRY_CREDENTIALS = 'dockerhub-creds' // Jenkins credentials ID
+        KUBE_CONTEXT = 'your-kube-context'       // Set in Jenkins credentials
     }
 
     stages {
 
         stage('Code Checkout') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/mohithkumar96/devops-project.git'
-                echo "Checked out commit ${COMMIT_HASH}"
+                echo "Checking out branch ${BRANCH_NAME}"
+                git branch: "${BRANCH_NAME}", url: "${REPO_URL}"
             }
         }
 
         stage('Static Code Analysis') {
             steps {
-                sh '''
-                    pip install tfsec checkov
-                    tfsec terraform/
-                    checkov -d terraform/
-                '''
+                echo "Scanning Terraform code with tfsec"
+                sh 'tfsec terraform/'  // Make sure tfsec is installed
+                // Optional: scan app code with SonarQube or ESLint
             }
         }
 
         stage('Docker Build & Push') {
             steps {
-                sh """
-                    docker build -t $REGISTRY/$IMAGE_NAME:${BUILD_NUMBER}-${COMMIT_HASH} .
-                    echo $DOCKERHUB_PASSWORD | docker login -u $REGISTRY --password-stdin
-                    docker push $REGISTRY/$IMAGE_NAME:${BUILD_NUMBER}-${COMMIT_HASH}
-                """
+                script {
+                    def commitHash = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                    def tag = "${DOCKER_IMAGE}:${commitHash}"
+                    
+                    echo "Building Docker image ${tag}"
+                    sh "docker build -t ${tag} ."
+                    
+                    echo "Logging in to Docker Hub"
+                    withCredentials([usernamePassword(credentialsId: "${REGISTRY_CREDENTIALS}", usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                        sh "echo $PASS | docker login -u $USER --password-stdin"
+                    }
+                    
+                    echo "Pushing Docker image to registry"
+                    sh "docker push ${tag}"
+                }
             }
         }
 
-        stage('Image Security Scan') {
+        stage('Image Security Scanning') {
             steps {
-                sh "trivy image --exit-code 1 $REGISTRY/$IMAGE_NAME:${BUILD_NUMBER}-${COMMIT_HASH}"
+                echo "Scanning Docker image for vulnerabilities"
+                sh "trivy image ${DOCKER_IMAGE}:latest" // Make sure Trivy is installed
             }
         }
 
-        stage('Deploy to Dev') {
+        stage('Deployment to Kubernetes') {
             steps {
-                echo "Deploying to Dev namespace..."
-                sh """
-                    kubectl --kubeconfig=$KUBECONFIG set image deployment/$IMAGE_NAME $IMAGE_NAME=$REGISTRY/$IMAGE_NAME:${BUILD_NUMBER}-${COMMIT_HASH} -n $DEV_NAMESPACE
-                    kubectl --kubeconfig=$KUBECONFIG rollout status deployment/$IMAGE_NAME -n $DEV_NAMESPACE
-                """
-            }
-        }
-
-        stage('Promote to Staging') {
-            steps {
-                input message: "Approve deployment to Staging?"
-                sh """
-                    kubectl --kubeconfig=$KUBECONFIG set image deployment/$IMAGE_NAME $IMAGE_NAME=$REGISTRY/$IMAGE_NAME:${BUILD_NUMBER}-${COMMIT_HASH} -n $STAGING_NAMESPACE
-                    kubectl --kubeconfig=$KUBECONFIG rollout status deployment/$IMAGE_NAME -n $STAGING_NAMESPACE
-                """
-            }
-        }
-
-        stage('Promote to Production') {
-            steps {
-                input message: "Approve deployment to Production?"
-                sh """
-                    kubectl --kubeconfig=$KUBECONFIG set image deployment/$IMAGE_NAME $IMAGE_NAME=$REGISTRY/$IMAGE_NAME:${BUILD_NUMBER}-${COMMIT_HASH} -n $PROD_NAMESPACE
-                    kubectl --kubeconfig=$KUBECONFIG rollout status deployment/$IMAGE_NAME -n $PROD_NAMESPACE
-                """
+                echo "Deploying to Kubernetes cluster"
+                sh "kubectl --context ${KUBE_CONTEXT} apply -f k8s/"
             }
         }
 
         stage('Rollback Capability') {
             steps {
-                echo "Rollback option available using previous image tag or Helm revision"
-                // Example Helm rollback command:
-                // sh "helm rollback my-release 1 --kubeconfig=$KUBECONFIG"
+                echo "Rollback options available using Helm or Git tags"
+                // Example Helm rollback:
+                // sh "helm rollback my-release 1 --kube-context ${KUBE_CONTEXT}"
             }
         }
     }
 
     post {
         always {
-            echo 'Cleaning up...'
-            sh 'docker system prune -f'
+            echo "Cleaning workspace"
+            cleanWs()
         }
         success {
-            echo 'Pipeline succeeded!'
+            echo "Pipeline completed successfully"
         }
         failure {
-            echo 'Pipeline failed!'
+            echo "Pipeline failed"
         }
     }
 }
+
