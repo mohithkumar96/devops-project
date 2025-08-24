@@ -31,13 +31,10 @@ pipeline {
         stage('Docker Build & Push') {
             steps {
                 script {
-                    def imageTag = "${DOCKER_IMAGE}:${env.BUILD_NUMBER}"
-                    sh """
                         image 'mohithkumar96/devops-app:latest'
                         args '-v /var/run/docker.sock:/var/run/docker.sock'
                         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
                         docker push ${imageTag}
-                    """
                 }
             }
         }
