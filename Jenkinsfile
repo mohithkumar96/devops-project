@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         // GitHub credentials (Jenkins Credentials ID)
-        GIT_CREDENTIALS_ID = 'github-pat'
+        GIT_CREDENTIALS_ID = 'Git'
         REPO_URL = 'https://github.com/mohithkumar96/devops-project.git'
         BRANCH = 'main'
 
