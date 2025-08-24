@@ -31,10 +31,11 @@ pipeline {
         stage('Docker Build & Push') {
             steps {
                 script {
-                    sh '''
-                    docker pull mohithkumar96/devops-app:latest
-                    docker run --rm -d --name my-app mohithkumar96/devops-app:latest
-                '''
+                    sh """
+                    docker login -u $DOCKER_USER -p $DOCKER_PASS
+                    docker build -t ${DOCKER_IMAGE}:${env.BUILD_NUMBER} .
+                    docker push ${DOCKER_IMAGE}:${env.BUILD_NUMBER}
+                    """
                 }
             }
         }
