@@ -43,7 +43,7 @@ pipeline {
             steps {
                 script {
                     def imageTag = "${DOCKER_IMAGE}:${env.BUILD_NUMBER}"
-                    sh "trivy image --severity HIGH,CRITICAL ${imageTag}"
+                    sh "trivy image --remote --severity HIGH,CRITICAL ${imageTag}"
                 }
             }
         }
