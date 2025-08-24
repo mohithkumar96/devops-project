@@ -2,7 +2,7 @@ pipeline {
     agent any
     environment {
         // Define environment variables
-        DOCKER_IMAGE = "mohithkumar96/devops-app1:latest"
+        DOCKER_IMAGE = "devops-app1:latest"
         KUBECONFIG_FILE = credentials('kubeconfig')  // Jenkins credential with kubeconfig
         DOCKER_USER = "mohithkumar96"
         DOCKER_PASS = "dckr_pat_tLTlPEGLKJctsi0_83V7nE4ksLM"
