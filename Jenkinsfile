@@ -33,7 +33,8 @@ pipeline {
                 script {
                     def imageTag = "${DOCKER_IMAGE}:${env.BUILD_NUMBER}"
                     sh """
-                        docker build -t ${imageTag} -f app/Dockerfile app
+                        image 'mohithkumar96/devops-app:latest'
+                        args '-v /var/run/docker.sock:/var/run/docker.sock'
                         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
                         docker push ${imageTag}
                     """
