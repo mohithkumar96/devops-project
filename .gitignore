@@ -1,0 +1,11 @@
+# Ignore Terraform local files
+.terraform/
+*.tfstate
+*.tfstate.*
+.crash
+*.exe
+
+# Ignore credentials
+*.pem
+*.ppk
+*.csv
