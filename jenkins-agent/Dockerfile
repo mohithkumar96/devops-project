@@ -1,27 +1,21 @@
-# Base Jenkins agent
-FROM jenkins/agent:latest
+FROM jenkins/inbound-agent:latest
 
 USER root
-
-# Install tools
 RUN apt-get update && apt-get install -y \
-    docker.io \
     git \
+    docker.io \
     curl \
     wget \
-    unzip \
-    bash-completion \
-    && rm -rf /var/lib/apt/lists/*
+    unzip
 
-# Install tfsec (Terraform static code analysis)
+# Install tfsec
 RUN curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
 
-# Install Trivy (container image scanning)
-RUN wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.43.2_Linux-64bit.deb \
-    && dpkg -i trivy_0.43.2_Linux-64bit.deb \
-    && rm trivy_0.43.2_Linux-64bit.deb
+# Install trivy
+RUN apt-get install -y wget && \
+    wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.44.0_Linux-64bit.deb && \
+    dpkg -i trivy_0.44.0_Linux-64bit.deb
 
-USER jenkins
-
-# Set working directory
-WORKDIR /home/jenkins/agent
+# Install kubectl
+RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
