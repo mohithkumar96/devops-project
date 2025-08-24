@@ -1,9 +1,12 @@
-FROM python:3.9-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY app.py .
-# 🔑 Add the port your app listens on (e.g., Flask defaults to 5000)
-EXPOSE 5000
-CMD ["python", "app.py"]
+FROM jenkins/jenkins:lts
+
+USER root
+
+# Install Docker CLI inside Jenkins
+RUN apt-get update && \
+    apt-get install -y docker.io && \
+    apt-get clean
+
+# Switch back to Jenkins user
+USER jenkins
 
