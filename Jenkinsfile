@@ -2,8 +2,7 @@ pipeline {
     agent any
     environment {
         // Define environment variables
-        DOCKER_IMAGE = "docker:24.0" //Docker client image
-        args '--network host -v /var/run/docker.sock:/var/run/docker.sock'
+        DOCKER_IMAGE = "my-app:latest"
         KUBECONFIG_FILE = credentials('kubeconfig')  // Jenkins credential with kubeconfig
         GIT_CREDENTIALS = credentials('Git')     // GitHub credentials
     }
