@@ -30,9 +30,9 @@ pipeline {
         stage('Docker Build & Push') {
             steps {
                 script {
-                    def imageTag = "${imagetag}:${env.BUILD_NUMBER}"
+                    def imageTag = "${DOCKER_IMAGE}:${env.BUILD_NUMBER}"
                     sh """
-                        docker build -t ${DOCKER_IMAGE} ./app
+                        docker build -t ${imagetag} ./app
                         docker push ${imageTag}
                     """
                 }
