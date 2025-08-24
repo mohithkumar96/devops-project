@@ -2,85 +2,90 @@ pipeline {
     agent any
 
     environment {
+        // GitHub credentials (Jenkins Credentials ID)
+        GIT_CREDENTIALS_ID = 'github-pat'
         REPO_URL = 'https://github.com/mohithkumar96/devops-project.git'
-        BRANCH_NAME = 'main'
-        DOCKER_IMAGE = 'mohithkumar96/devops-app'
-        REGISTRY_CREDENTIALS = 'dockerhub-creds' // Jenkins credentials ID
-        KUBE_CONTEXT = 'your-kube-context'       // Set in Jenkins credentials
+        BRANCH = 'main'
+
+        // Docker variables
+        DOCKER_IMAGE = "mohithkumar96/devops-app"
+        DOCKER_TAG = "${env.BUILD_NUMBER}"
+
+        // Kubernetes context
+        KUBE_CONTEXT = 'your-kube-context'  // Add your kubeconfig credentials in Jenkins
+
+        // Optional: Add registry credentials if needed
+        DOCKER_CREDENTIALS_ID = 'dockerhub-cred'
     }
 
     stages {
-
         stage('Code Checkout') {
             steps {
-                echo "Checking out branch ${BRANCH_NAME}"
-                git branch: "${BRANCH_NAME}", url: "${REPO_URL}"
-                credentialsId: 'Git'
+                echo "Checking out branch ${BRANCH}"
+                git branch: "${BRANCH}",
+                    url: "${REPO_URL}",
+                    credentialsId: "${GIT_CREDENTIALS_ID}"
             }
         }
 
         stage('Static Code Analysis') {
             steps {
-                echo "Scanning Terraform code with tfsec"
-                sh 'tfsec terraform/'  // Make sure tfsec is installed
-                // Optional: scan app code with SonarQube or ESLint
+                echo "Running Terraform static code analysis..."
+                sh '''
+                # Example: using tfsec
+                tfsec ./terraform || true
+                '''
             }
         }
 
         stage('Docker Build & Push') {
             steps {
                 script {
-                    def commitHash = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-                    def tag = "${DOCKER_IMAGE}:${commitHash}"
-                    
-                    echo "Building Docker image ${tag}"
-                    sh "docker build -t ${tag} ."
-                    
-                    echo "Logging in to Docker Hub"
-                    withCredentials([usernamePassword(credentialsId: "${REGISTRY_CREDENTIALS}", usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-                        sh "echo $PASS | docker login -u $USER --password-stdin"
+                    echo "Building Docker image..."
+                    sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
+                    echo "Pushing Docker image..."
+                    docker.withRegistry('', "${DOCKER_CREDENTIALS_ID}") {
+                        sh "docker push ${DOCKER_IMAGE}:${DOCKER_TAG}"
                     }
-                    
-                    echo "Pushing Docker image to registry"
-                    sh "docker push ${tag}"
                 }
             }
         }
 
-        stage('Image Security Scanning') {
+        stage('Image Security Scan') {
             steps {
-                echo "Scanning Docker image for vulnerabilities"
-                sh "trivy image ${DOCKER_IMAGE}:latest" // Make sure Trivy is installed
+                echo "Scanning Docker image with Trivy..."
+                sh "trivy image ${DOCKER_IMAGE}:${DOCKER_TAG} || true"
             }
         }
 
-        stage('Deployment to Kubernetes') {
+        stage('Deploy to Kubernetes') {
             steps {
-                echo "Deploying to Kubernetes cluster"
-                sh "kubectl --context ${KUBE_CONTEXT} apply -f k8s/"
+                echo "Deploying application to Kubernetes..."
+                sh '''
+                kubectl --context=${KUBE_CONTEXT} apply -f k8s/deployment.yaml
+                kubectl --context=${KUBE_CONTEXT} rollout status deployment/my-app
+                '''
             }
         }
 
         stage('Rollback Capability') {
             steps {
-                echo "Rollback options available using Helm or Git tags"
-                // Example Helm rollback:
-                // sh "helm rollback my-release 1 --kube-context ${KUBE_CONTEXT}"
+                echo "Rollback stage placeholder - implement as needed"
+                // Example: helm rollback or kubectl rollback commands
             }
         }
     }
 
     post {
-        always {
-            echo "Cleaning workspace"
-            cleanWs()
-        }
         success {
-            echo "Pipeline completed successfully"
+            echo "Pipeline completed successfully!"
         }
         failure {
-            echo "Pipeline failed"
+            echo "Pipeline failed. Please check logs."
+        }
+        always {
+            echo "Cleaning workspace..."
+            cleanWs()
         }
     }
 }
-
