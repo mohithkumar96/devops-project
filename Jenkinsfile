@@ -32,7 +32,7 @@ pipeline {
                 script {
                     def imageTag = "${DOCKER_IMAGE}:${env.BUILD_NUMBER}"
                     sh """
-                        docker build -t ${imagetag} ./app
+                        docker build -t ${imageTag} ./app
                         docker push ${imageTag}
                     """
                 }
