@@ -11,7 +11,7 @@ pipeline {
         stage('Checkout SCM') {
             steps {
                 git branch: 'main',
-                    credentialsId: 'GitHub-PAT',
+                    credentialsId: 'Git',
                     url: 'https://github.com/mohithkumar96/devops-project.git'
             }
         }
