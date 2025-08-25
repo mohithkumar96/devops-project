@@ -37,81 +37,81 @@ pipeline {
 
         stage('Docker Build & Push') {
             steps {
-                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Devops-App/Dockerfile Devops-App"
-                withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-                    sh "docker login ${REGISTRY} -u $USER -p $PASS"
-                    sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
-                }
+                sh """
+                docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Devops-App/Dockerfile Devops-App
+                docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                """
+            }
+        }
+
+        stage('Create Namespaces') {
+            steps {
+                sh """
+                kubectl --server=${K8S_API} --token=${K8S_TOKEN} --insecure-skip-tls-verify=true create namespace dev || echo 'Namespace dev exists'
+                kubectl --server=${K8S_API} --token=${K8S_TOKEN} --insecure-skip-tls-verify=true create namespace staging || echo 'Namespace staging exists'
+                kubectl --server=${K8S_API} --token=${K8S_TOKEN} --insecure-skip-tls-verify=true create namespace prod || echo 'Namespace prod exists'
+                """
             }
         }
 
         stage('Deploy to Dev') {
             steps {
                 sh """
-                kubectl --server=${K8S_API} \
-                        --token=${K8S_TOKEN} \
-                        --namespace=dev \
-                        --insecure-skip-tls-verify=true \
-                        apply -f k8s-manifests/
+                kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=dev --insecure-skip-tls-verify=true apply -f k8s-manifests/
                 """
             }
         }
 
-        stage('Promote to Staging') {
+        stage('Deploy to Staging') {
             steps {
-                input message: 'Approve promotion to Staging?'
+                input message: 'Approve deployment to staging?', ok: 'Deploy'
                 sh """
-                kubectl --server=${K8S_API} \
-                        --token=${K8S_TOKEN} \
-                        --namespace=staging \
-                        --insecure-skip-tls-verify=true \
-                        apply -f k8s-manifests/
+                kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=staging --insecure-skip-tls-verify=true apply -f k8s-manifests/
                 """
             }
         }
 
-        stage('Promote to Production') {
+        stage('Deploy to Production') {
             steps {
-                input message: 'Approve promotion to Production?'
+                input message: 'Approve deployment to production?', ok: 'Deploy'
                 sh """
-                kubectl --server=${K8S_API} \
-                        --token=${K8S_TOKEN} \
-                        --namespace=prod \
-                        --insecure-skip-tls-verify=true \
-                        apply -f k8s-manifests/
+                kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=prod --insecure-skip-tls-verify=true apply -f k8s-manifests/
                 """
             }
         }
 
-        stage('Rollback') {
+        stage('Rollback Option') {
             when {
-                expression { currentBuild.result == 'FAILURE' }
+                expression { return params.ROLLBACK == true }
             }
             steps {
+                input message: 'Rollback to previous version?', ok: 'Rollback'
                 script {
-                    // Docker rollback example (use previous Git tag)
-                    def previousTag = sh(script: "git describe --tags --abbrev=0 HEAD^", returnStdout: true).trim()
-                    echo "Rolling back Docker image to tag: ${previousTag}"
-                    sh "docker pull ${IMAGE_NAME}:${previousTag}"
-                    sh "docker tag ${IMAGE_NAME}:${previousTag} ${IMAGE_NAME}:${IMAGE_TAG}"
-                    sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
+                    // Docker rollback
+                    sh "docker pull ${IMAGE_NAME}:${params.ROLLBACK_TAG}"
+                    sh "kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=prod --insecure-skip-tls-verify=true set image deployment/devops-app devops-app=${IMAGE_NAME}:${params.ROLLBACK_TAG}"
 
-                    // Helm rollback example
-                    // sh "helm rollback devops-app 1 --namespace dev"
-                    // sh "helm rollback devops-app 1 --namespace staging"
-                    // sh "helm rollback devops-app 1 --namespace prod"
+                    // Helm rollback (if using Helm)
+                    // sh "helm rollback my-release 1 --namespace prod"
 
                     // Database rollback placeholder
-                    // sh "psql -U user -d db -f rollback.sql"
+                    // sh "./scripts/db_rollback.sh ${params.ROLLBACK_TAG}"
                 }
             }
         }
     }
 
     post {
-        always { cleanWs() }
-        success { echo "Pipeline succeeded!" }
-        failure { echo "Pipeline failed! Rollback executed." }
+        always {
+            cleanWs()
+        }
+        success {
+            echo "Pipeline succeeded!"
+        }
+        failure {
+            echo "Pipeline failed!"
+        }
     }
 }
+
 
