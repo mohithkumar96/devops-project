@@ -28,7 +28,18 @@ pipeline {
                 }
             }
         }
-
+         stages {
+         stage('Install Podman') {
+            steps {
+                sh '''
+                  echo "Installing Podman..."
+                  sudo apt-get update -y
+                  sudo apt-get install -y podman
+                  podman --version
+                '''
+            }
+        }
+             
 
         stages {
         stage('Install Podman') {
@@ -40,8 +51,7 @@ pipeline {
                   podman --version
                 '''
             }
-        }
-            
+        }             
         stage('Podman Build') {
             steps {
                 script {
