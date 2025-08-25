@@ -7,14 +7,13 @@ pipeline {
         IMAGE_TAG = "1.0"
     }
 
-    stages {
-        stage('Checkout SCM') {
-            steps {
-                git branch: 'main', 
-            credentialsId: 'Git', 
+    stage('Checkout SCM') {
+    steps {
+        git branch: 'main', 
+            credentialsId: 'GitHub-PAT', 
             url: 'https://github.com/mohithkumar96/devops-project.git'
-            }
-        }
+    }
+}
 
         stage('Terraform Static Analysis') {
             steps {
