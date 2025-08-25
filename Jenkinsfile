@@ -29,23 +29,11 @@ pipeline {
             }
         }
 
-        stage('Install Podman') {
-            steps {
-                sh '''
-                  echo "Installing Podman..."
-                  sudo apt-get update -y
-                  sudo apt-get install -y podman
-                  podman --version
-                '''
-            }
-        }
+        
 
         stage('Podman Build') {
             steps {
-                sh '''
-                podman --version
-                sudo podman build --storage-driver=vfs -t mohithkumar96/devops-app:1.0 -f Devops-App/Dockerfile Devops-App
-              '''
+                sh 'docker build -t mohithkumar96/devops-app:1.0 -f Devops-App/Dockerfile Devops-App'
             }
         }
 
