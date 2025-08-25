@@ -23,12 +23,12 @@ pipeline {
                 script {
                     def tfsecPath = "${env.WORKSPACE}/bin/tfsec"
                     sh """
-                    mkdir -p ${env.WORKSPACE}/bin
-                    if [ ! -f ${tfsecPath} ]; then
-                        curl -sSL https://github.com/aquasecurity/tfsec/releases/latest/download/tfsec-linux-amd64 -o ${tfsecPath}
-                        chmod +x ${tfsecPath}
-                    fi
-                    ${tfsecPath} terraform || echo 'No issues found'
+                        mkdir -p ${env.WORKSPACE}/bin
+                        if [ ! -f ${tfsecPath} ]; then
+                            curl -sSL https://github.com/aquasecurity/tfsec/releases/latest/download/tfsec-linux-amd64 -o ${tfsecPath}
+                            chmod +x ${tfsecPath}
+                        fi
+                        ${tfsecPath} terraform || echo 'No issues found'
                     """
                 }
             }
@@ -57,30 +57,34 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-            def helmChartExists = fileExists('k8s-manifests/helm-chart/Chart.yaml')
-            if (helmChartExists) {
-                echo "Deploying using Helm chart"
-                sh '''
-                    helm upgrade --install devops-app k8s-manifests/helm-chart \
-                        --set image.repository=${IMAGE_NAME} \
-                        --set image.tag=${IMAGE_TAG} \
-                        --kube-token=$K8S_TOKEN \
-                        --kube-apiserver=https://kubernetes.docker.internal:6443 \
-                        --insecure-skip-tls-verify
-                '''
-            } else {
-                echo "Deploying using YAML manifests"
-                withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
-                    sh '''
-                    kubectl --server=https://kubernetes.docker.internal:6443 \
-                            --token=$K8S_TOKEN \
-                            --insecure-skip-tls-verify=true \
-                            apply -f k8s-manifests/
-                '''
+                    def helmChartExists = fileExists('k8s-manifests/helm-chart/Chart.yaml')
+                    if (helmChartExists) {
+                        echo "Deploying using Helm chart"
+                        withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
+                            sh """
+                                helm upgrade --install devops-app k8s-manifests/helm-chart \
+                                    --set image.repository=${IMAGE_NAME} \
+                                    --set image.tag=${IMAGE_TAG} \
+                                    --kube-token=$K8S_TOKEN \
+                                    --kube-apiserver=${K8S_API} \
+                                    --insecure-skip-tls-verify
+                            """
+                        }
+                    } else {
+                        echo "Deploying using YAML manifests"
+                        withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
+                            sh """
+                                kubectl --server=${K8S_API} \
+                                        --token=$K8S_TOKEN \
+                                        --insecure-skip-tls-verify=true \
+                                        apply -f k8s-manifests/
+                            """
+                        }
+                    }
+                }
             }
         }
     }
-}
 
     post {
         always {
