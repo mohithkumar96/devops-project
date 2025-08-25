@@ -5,7 +5,7 @@ pipeline {
         REGISTRY = "docker.io"
         IMAGE_NAME = "mohithkumar96/devops-app"
         IMAGE_TAG = "1.0"
-        PODMAN_CMD = "/usr/bin/podman" // Adjust if Podman is installed elsewhere
+        Credentialsid = "Git
     }
 
     stages {
