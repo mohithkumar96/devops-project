@@ -17,20 +17,20 @@ pipeline {
 
         stage('Terraform Static Analysis') {
             steps {
-                script {
-                    // Check if tfsec exists
-                    if (!fileExists("/usr/local/bin/tfsec")) {
-                        echo "tfsec not found, installing..."
-                        sh """
-                        curl -sSL https://github.com/aquasecurity/tfsec/releases/latest/download/tfsec-linux-amd64 -o /usr/local/bin/tfsec
-                        chmod +x /usr/local/bin/tfsec
-                        """
-                    }
-                    sh "/usr/local/bin/tfsec terraform || echo 'No issues found'"
-                }
+                 script {
+                     def tfsecPath = "${env.WORKSPACE}/bin/tfsec"
+                     sh """
+                     mkdir -p ${env.WORKSPACE}/bin
+                     if [ ! -f ${tfsecPath} ]; then
+                         curl -sSL https://github.com/aquasecurity/tfsec/releases/latest/download/tfsec-linux-amd64 -o ${tfsecPath}
+                         chmod +x ${tfsecPath}
+                     fi
+                     ${tfsecPath} terraform || echo 'No issues found'
+                     """
+                 }
             }
-        }
-
+         }
+        
         stage('Podman Build') {
             steps {
                 script {
