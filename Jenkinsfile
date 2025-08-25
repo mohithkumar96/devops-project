@@ -29,7 +29,7 @@ pipeline {
             }
         }
 
-        stage('Docker Build & Push') {
+        stage('Podman Build') {
             steps {
                 script {
                     sh "podman build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Devops-App/Dockerfile Devops-App"
@@ -37,6 +37,18 @@ pipeline {
             }
         }
 
+        stage('Login to Registry') {
+            steps {
+                sh "podman login docker.io -u mohithkumar96 -p ${DOCKERHUB_PAT}"
+            }
+        }
+
+        stage('Push Image') {
+            steps {
+                sh "podman push ${IMAGE_NAME}:${IMAGE_TAG}"
+            }
+        }
+        
         stage('Image Security Scan') {
             steps {
                 script {
