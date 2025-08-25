@@ -7,30 +7,31 @@ pipeline {
         IMAGE_TAG = "1.0"
     }
 
-    stage('Checkout SCM') {
-    steps {
-        git branch: 'main', 
-            credentialsId: 'GitHub-PAT', 
-            url: 'https://github.com/mohithkumar96/devops-project.git'
-    }
-}
+    stages {   // <-- all stages must be inside this
+        stage('Checkout SCM') {
+            steps {
+                git branch: 'main',
+                    credentialsId: 'GitHub-PAT',
+                    url: 'https://github.com/mohithkumar96/devops-project.git'
+            }
+        }
 
         stage('Terraform Static Analysis') {
             steps {
-                 script {
-                     def tfsecPath = "${env.WORKSPACE}/bin/tfsec"
-                     sh """
-                     mkdir -p ${env.WORKSPACE}/bin
-                     if [ ! -f ${tfsecPath} ]; then
-                         curl -sSL https://github.com/aquasecurity/tfsec/releases/latest/download/tfsec-linux-amd64 -o ${tfsecPath}
-                         chmod +x ${tfsecPath}
-                     fi
-                     ${tfsecPath} terraform || echo 'No issues found'
-                     """
-                 }
+                script {
+                    def tfsecPath = "${env.WORKSPACE}/bin/tfsec"
+                    sh """
+                    mkdir -p ${env.WORKSPACE}/bin
+                    if [ ! -f ${tfsecPath} ]; then
+                        curl -sSL https://github.com/aquasecurity/tfsec/releases/latest/download/tfsec-linux-amd64 -o ${tfsecPath}
+                        chmod +x ${tfsecPath}
+                    fi
+                    ${tfsecPath} terraform || echo 'No issues found'
+                    """
+                }
             }
-         }
-        
+        }
+
         stage('Podman Build') {
             steps {
                 script {
@@ -42,21 +43,21 @@ pipeline {
         stage('Login to Registry') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'docker-hub', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh "${env.PODMAN_CMD} login ${REGISTRY} -u $USER -p $PASS"
+                    sh "docker login ${REGISTRY} -u $USER -p $PASS"
                 }
             }
         }
 
         stage('Push Image') {
             steps {
-                sh "${env.PODMAN_CMD} push ${IMAGE_NAME}:${IMAGE_TAG}"
+                sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    sh "kubectl apply -f k8s-manifests/" // Adjust path to your k8s manifests
+                    sh "kubectl apply -f k8s-manifests/"
                 }
             }
         }
@@ -68,12 +69,12 @@ pipeline {
         }
         failure {
             echo "Pipeline failed!"
-            // Optionally, send email here, but configure SMTP server first
         }
         success {
             echo "Pipeline succeeded!"
         }
     }
 }
+
 
     
