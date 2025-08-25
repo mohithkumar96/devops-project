@@ -34,7 +34,7 @@ pipeline {
         stage('Podman Build') {
             steps {
                 script {
-                    sh "${env.PODMAN_CMD} build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Devops-App/Dockerfile Devops-App"
+                    sh 'docker build -t mohithkumar96/devops-app:1.0 -f Devops-App/Dockerfile Devops-App'
                 }
             }
         }
