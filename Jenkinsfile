@@ -42,7 +42,8 @@ pipeline {
 
         stage('Podman Build') {
             steps {
-                sh "podman build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Devops-App/Dockerfile Devops-App"
+                podman --log-level=debug info
+                sudo podman build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Devops-App/Dockerfile Devops-App
             }
         }
 
