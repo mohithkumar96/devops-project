@@ -6,6 +6,7 @@ pipeline {
         IMAGE_NAME = "mohithkumar96/devops-app"
         IMAGE_TAG = "1.0"
         DOCKER_HOST = "tcp://host.docker.internal:2375"
+        KUBECONFIG = "/var/jenkins_home/.kube/config"
     }
 
     stages {
