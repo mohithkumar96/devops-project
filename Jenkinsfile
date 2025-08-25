@@ -7,11 +7,10 @@ pipeline {
         IMAGE_TAG = "1.0"
         DOCKER_HOST = "tcp://host.docker.internal:2375"
         K8S_API = "https://kubernetes.docker.internal:6443"
+        K8S_TOKEN = credentials('k8s-token')
     }
 
     stages {
-
-        // 1️⃣ Checkout Source Code
         stage('Checkout SCM') {
             steps {
                 git branch: 'main',
@@ -20,7 +19,6 @@ pipeline {
             }
         }
 
-        // 2️⃣ Terraform Static Analysis
         stage('Terraform Static Analysis') {
             steps {
                 script {
@@ -37,124 +35,83 @@ pipeline {
             }
         }
 
-        // 3️⃣ Build Docker Image
-        stage('Docker Build') {
+        stage('Docker Build & Push') {
             steps {
                 sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Devops-App/Dockerfile Devops-App"
-            }
-        }
-
-        // 4️⃣ Login to Docker Hub
-        stage('Login to Docker Hub') {
-            steps {
                 withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
                     sh "docker login ${REGISTRY} -u $USER -p $PASS"
+                    sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
                 }
             }
         }
 
-        // 5️⃣ Push Docker Image
-        stage('Push Docker Image') {
-            steps {
-                sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
-            }
-        }
-
-        // 6️⃣ Deploy to Development
         stage('Deploy to Dev') {
             steps {
-                withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
-                    script {
-                        // Create dev namespace if it doesn't exist
-                        sh "kubectl get namespace dev || kubectl create namespace dev"
-
-                        def helmChartExists = fileExists('k8s-manifests/helm-chart/Chart.yaml')
-                        if (helmChartExists) {
-                            echo "Deploying to Dev using Helm"
-                            sh """
-                            helm upgrade --install devops-app k8s-manifests/helm-chart \
-                                --set image.repository=${IMAGE_NAME} \
-                                --set image.tag=${IMAGE_TAG} \
-                                --kube-token=$K8S_TOKEN \
-                                --kube-apiserver=${K8S_API} \
-                                --insecure-skip-tls-verify
-                            """
-                        } else {
-                            echo "Deploying to Dev using YAML manifests"
-                            sh """
-                            kubectl --server=${K8S_API} \
-                                    --token=$K8S_TOKEN \
-                                    --namespace=dev \
-                                    --insecure-skip-tls-verify=true \
-                                    apply -f k8s-manifests/
-                            """
-                        }
-                    }
-                }
+                sh """
+                kubectl --server=${K8S_API} \
+                        --token=${K8S_TOKEN} \
+                        --namespace=dev \
+                        --insecure-skip-tls-verify=true \
+                        apply -f k8s-manifests/
+                """
             }
         }
 
-        // 7️⃣ Promote to Staging (Manual Approval)
         stage('Promote to Staging') {
             steps {
-                input message: 'Approve deployment to Staging?', ok: 'Deploy'
-                withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
-                    sh "kubectl get namespace staging || kubectl create namespace staging"
-                    sh """
-                    kubectl --server=${K8S_API} \
-                            --token=$K8S_TOKEN \
-                            --namespace=staging \
-                            --insecure-skip-tls-verify=true \
-                            apply -f k8s-manifests/
-                    """
-                }
+                input message: 'Approve promotion to Staging?'
+                sh """
+                kubectl --server=${K8S_API} \
+                        --token=${K8S_TOKEN} \
+                        --namespace=staging \
+                        --insecure-skip-tls-verify=true \
+                        apply -f k8s-manifests/
+                """
             }
         }
 
-        // 8️⃣ Promote to Production (Manual Approval)
         stage('Promote to Production') {
             steps {
-                input message: 'Approve deployment to Production?', ok: 'Deploy'
-                withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
-                    sh "kubectl get namespace production || kubectl create namespace production"
-                    sh """
-                    kubectl --server=${K8S_API} \
-                            --token=$K8S_TOKEN \
-                            --namespace=production \
-                            --insecure-skip-tls-verify=true \
-                            apply -f k8s-manifests/
-                    """
-                }
+                input message: 'Approve promotion to Production?'
+                sh """
+                kubectl --server=${K8S_API} \
+                        --token=${K8S_TOKEN} \
+                        --namespace=prod \
+                        --insecure-skip-tls-verify=true \
+                        apply -f k8s-manifests/
+                """
             }
         }
 
-        // 9️⃣ Rollback (Optional)
         stage('Rollback') {
             when {
-                expression { params.ROLLBACK == true } // Optional boolean parameter in Jenkins
+                expression { currentBuild.result == 'FAILURE' }
             }
             steps {
-                input message: 'Approve Rollback?', ok: 'Rollback'
-                withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
-                    sh """
-                    helm rollback devops-app 1 --namespace production
-                    """
-                    // Optional DB rollback
-                    // sh './db/rollback.sh'
+                script {
+                    // Docker rollback example (use previous Git tag)
+                    def previousTag = sh(script: "git describe --tags --abbrev=0 HEAD^", returnStdout: true).trim()
+                    echo "Rolling back Docker image to tag: ${previousTag}"
+                    sh "docker pull ${IMAGE_NAME}:${previousTag}"
+                    sh "docker tag ${IMAGE_NAME}:${previousTag} ${IMAGE_NAME}:${IMAGE_TAG}"
+                    sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
+
+                    // Helm rollback example
+                    // sh "helm rollback devops-app 1 --namespace dev"
+                    // sh "helm rollback devops-app 1 --namespace staging"
+                    // sh "helm rollback devops-app 1 --namespace prod"
+
+                    // Database rollback placeholder
+                    // sh "psql -U user -d db -f rollback.sql"
                 }
             }
         }
     }
 
     post {
-        always {
-            cleanWs()
-        }
-        success {
-            echo "Pipeline succeeded!"
-        }
-        failure {
-            echo "Pipeline failed!"
-        }
+        always { cleanWs() }
+        success { echo "Pipeline succeeded!" }
+        failure { echo "Pipeline failed! Rollback executed." }
     }
 }
+
