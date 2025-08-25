@@ -5,13 +5,14 @@ pipeline {
         REGISTRY = "docker.io"
         IMAGE_NAME = "mohithkumar96/devops-app"
         IMAGE_TAG = "1.0"
-        Credentialsid = "Git
     }
 
     stages {
         stage('Checkout SCM') {
             steps {
-                checkout scm
+                git branch: 'main', 
+            credentialsId: 'Git', 
+            url: 'https://github.com/mohithkumar96/devops-project.git'
             }
         }
 
