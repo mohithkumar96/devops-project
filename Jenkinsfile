@@ -5,8 +5,10 @@ pipeline {
         REGISTRY = "docker.io"
         IMAGE_NAME = "mohithkumar96/devops-app"
         IMAGE_TAG = "1.0"
+        DOCKER_HOST = "tcp://host.docker.internal:2375"
     }
 
+    stages {
         stage('Checkout SCM') {
             steps {
                 git branch: 'main',
@@ -31,23 +33,21 @@ pipeline {
             }
         }
 
-        stage('Podman Build') {
+        stage('Docker Build') {
             steps {
-                script {
-                    sh 'docker build -t mohithkumar96/devops-app:1.0 -f Devops-App/Dockerfile Devops-App'
-                }
+                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Devops-App/Dockerfile Devops-App"
             }
         }
 
-        stage('Login to Registry') {
+        stage('Login to Docker Hub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'docker-hub', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
                     sh "docker login ${REGISTRY} -u $USER -p $PASS"
                 }
             }
         }
 
-        stage('Push Image') {
+        stage('Push Docker Image') {
             steps {
                 sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
             }
@@ -55,9 +55,7 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                script {
-                    sh "kubectl apply -f k8s-manifests/"
-                }
+                sh "kubectl apply -f k8s-manifests/"
             }
         }
     }
@@ -66,14 +64,12 @@ pipeline {
         always {
             cleanWs()
         }
-        failure {
-            echo "Pipeline failed!"
-        }
         success {
             echo "Pipeline succeeded!"
+        }
+        failure {
+            echo "Pipeline failed!"
         }
     }
 }
 
-
-    
