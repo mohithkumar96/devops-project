@@ -58,7 +58,11 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                sh "kubectl apply -f k8s-manifests/"
+                sh 
+                kubectl --server=${K8S_API} \
+                --token=${K8S_TOKEN} \
+                --insecure-skip-tls-verify=true \
+                apply -f k8s-manifests/
             }
         }
     }
