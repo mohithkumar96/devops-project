@@ -56,17 +56,31 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
+                script {
+            def helmChartExists = fileExists('k8s-manifests/helm-chart/Chart.yaml')
+            if (helmChartExists) {
+                echo "Deploying using Helm chart"
+                sh '''
+                    helm upgrade --install devops-app k8s-manifests/helm-chart \
+                        --set image.repository=${IMAGE_NAME} \
+                        --set image.tag=${IMAGE_TAG} \
+                        --kube-token=$K8S_TOKEN \
+                        --kube-apiserver=https://kubernetes.docker.internal:6443 \
+                        --insecure-skip-tls-verify
+                '''
+            } else {
+                echo "Deploying using YAML manifests"
                 withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
                     sh '''
                     kubectl --server=https://kubernetes.docker.internal:6443 \
                             --token=$K8S_TOKEN \
                             --insecure-skip-tls-verify=true \
                             apply -f k8s-manifests/
-                    '''
-                } // <-- closes withCredentials
+                '''
             }
         }
     }
+}
 
     post {
         always {
