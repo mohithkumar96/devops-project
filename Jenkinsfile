@@ -2,74 +2,62 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME    = "mohithkumar96/devops-app"
-        IMAGE_TAG     = "1.0"
-        DOCKER_USER   = "mohithkumar96"
-        DOCKER_PASS   = "dckr_pat_tLTlPEGLKJctsi0_83V7nE4ksLM"
+        REGISTRY = "docker.io"
+        IMAGE_NAME = "mohithkumar96/devops-app"
+        IMAGE_TAG = "1.0"
+        PODMAN_CMD = "/usr/bin/podman" // Adjust if Podman is installed elsewhere
     }
 
     stages {
-        stage('Code Checkout') {
+        stage('Checkout SCM') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/mohithkumar96/devops-project.git',
-                    credentialsId: "Git"
+                checkout scm
             }
         }
 
         stage('Terraform Static Analysis') {
             steps {
                 script {
-                    if (fileExists('terraform')) {
-                        sh 'tfsec terraform || echo "No issues found"'
-                    } else {
-                        echo "No Terraform code found. Skipping."
+                    // Check if tfsec exists
+                    if (!fileExists("/usr/local/bin/tfsec")) {
+                        echo "tfsec not found, installing..."
+                        sh """
+                        curl -sSL https://github.com/aquasecurity/tfsec/releases/latest/download/tfsec-linux-amd64 -o /usr/local/bin/tfsec
+                        chmod +x /usr/local/bin/tfsec
+                        """
                     }
+                    sh "/usr/local/bin/tfsec terraform || echo 'No issues found'"
                 }
             }
         }
 
-        
-
         stage('Podman Build') {
             steps {
-                sh 'docker build -t mohithkumar96/devops-app:1.0 -f Devops-App/Dockerfile Devops-App'
+                script {
+                    sh "${env.PODMAN_CMD} build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Devops-App/Dockerfile Devops-App"
+                }
             }
         }
 
         stage('Login to Registry') {
             steps {
-                sh "podman login docker.io -u ${DOCKER_USER} -p ${DOCKER_PASS}"
+                withCredentials([usernamePassword(credentialsId: 'docker-hub', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                    sh "${env.PODMAN_CMD} login ${REGISTRY} -u $USER -p $PASS"
+                }
             }
         }
 
         stage('Push Image') {
             steps {
-                sh "podman push ${IMAGE_NAME}:${IMAGE_TAG}"
-            }
-        }
-
-        stage('Image Security Scan') {
-            steps {
-                sh "trivy image --remote --severity HIGH,CRITICAL ${IMAGE_NAME}:${IMAGE_TAG}"
+                sh "${env.PODMAN_CMD} push ${IMAGE_NAME}:${IMAGE_TAG}"
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                withCredentials([file(credentialsId: 'KUBE-CONFIG', variable: 'KUBECONFIG')]) {
-                    sh '''
-                        kubectl apply -f k8s/deployment.yaml
-                        kubectl rollout status deployment/sample-app
-                    '''
+                script {
+                    sh "kubectl apply -f k8s-manifests/" // Adjust path to your k8s manifests
                 }
-            }
-        }
-
-        stage('Rollback (Optional)') {
-            steps {
-                input message: 'Rollback to previous version?', ok: 'Rollback'
-                sh "helm rollback sample-app <REVISION>"
             }
         }
     }
@@ -79,9 +67,13 @@ pipeline {
             cleanWs()
         }
         failure {
-            mail to: 'team@example.com',
-                 subject: "Jenkins Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                 body: "Check Jenkins for details: ${env.BUILD_URL}"
+            echo "Pipeline failed!"
+            // Optionally, send email here, but configure SMTP server first
+        }
+        success {
+            echo "Pipeline succeeded!"
         }
     }
 }
+
+    
