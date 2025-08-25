@@ -65,6 +65,9 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
                     script {
+                        // Create dev namespace if it doesn't exist
+                        sh "kubectl get namespace dev || kubectl create namespace dev"
+
                         def helmChartExists = fileExists('k8s-manifests/helm-chart/Chart.yaml')
                         if (helmChartExists) {
                             echo "Deploying to Dev using Helm"
@@ -81,6 +84,7 @@ pipeline {
                             sh """
                             kubectl --server=${K8S_API} \
                                     --token=$K8S_TOKEN \
+                                    --namespace=dev \
                                     --insecure-skip-tls-verify=true \
                                     apply -f k8s-manifests/
                             """
@@ -95,6 +99,7 @@ pipeline {
             steps {
                 input message: 'Approve deployment to Staging?', ok: 'Deploy'
                 withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
+                    sh "kubectl get namespace staging || kubectl create namespace staging"
                     sh """
                     kubectl --server=${K8S_API} \
                             --token=$K8S_TOKEN \
@@ -111,6 +116,7 @@ pipeline {
             steps {
                 input message: 'Approve deployment to Production?', ok: 'Deploy'
                 withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
+                    sh "kubectl get namespace production || kubectl create namespace production"
                     sh """
                     kubectl --server=${K8S_API} \
                             --token=$K8S_TOKEN \
@@ -131,7 +137,6 @@ pipeline {
                 input message: 'Approve Rollback?', ok: 'Rollback'
                 withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
                     sh """
-                    # Helm rollback example
                     helm rollback devops-app 1 --namespace production
                     """
                     // Optional DB rollback
@@ -153,4 +158,3 @@ pipeline {
         }
     }
 }
-
