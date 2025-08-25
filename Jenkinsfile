@@ -58,12 +58,13 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                sh """
-                kubectl --server=${K8S_API} \
+                withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
+                sh '''
+                kubectl --server=https://kubernetes.docker.internal:6443 \
                         --token=${K8S_TOKEN} \
                         --insecure-skip-tls-verify=true \
                         apply -f k8s-manifests/
-                """
+                '''
             }
         }
     }
