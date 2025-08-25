@@ -1,13 +1,13 @@
 pipeline {
     agent any
+
     environment {
-        // Define environment variables
-        IMAGE_NAME = "mohithkumar96/devops-app"
-        IMAGE_TAG = "1.0"
-        KUBECONFIG_FILE = credentials('kubeconfig')  // Jenkins credential with kubeconfig
-        DOCKER_USER = "mohithkumar96"
-        DOCKER_PASS = "dckr_pat_tLTlPEGLKJctsi0_83V7nE4ksLM"
+        IMAGE_NAME    = "mohithkumar96/devops-app"
+        IMAGE_TAG     = "1.0"
+        DOCKER_USER   = "mohithkumar96"
+        DOCKER_PASS   = "dckr_pat_tLTlPEGLKJctsi0_83V7nE4ksLM"
     }
+
     stages {
         stage('Code Checkout') {
             steps {
@@ -28,20 +28,7 @@ pipeline {
                 }
             }
         }
-         stages {
-         stage('Install Podman') {
-            steps {
-                sh '''
-                  echo "Installing Podman..."
-                  sudo apt-get update -y
-                  sudo apt-get install -y podman
-                  podman --version
-                '''
-            }
-        }
-             
 
-        stages {
         stage('Install Podman') {
             steps {
                 sh '''
@@ -51,18 +38,17 @@ pipeline {
                   podman --version
                 '''
             }
-        }             
+        }
+
         stage('Podman Build') {
             steps {
-                script {
-                    sh "podman build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Devops-App/Dockerfile Devops-App"
-                }
+                sh "podman build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Devops-App/Dockerfile Devops-App"
             }
         }
 
         stage('Login to Registry') {
             steps {
-                sh "podman login docker.io -u mohithkumar96 -p ${DOCKERHUB_PAT}"
+                sh "podman login docker.io -u ${DOCKER_USER} -p ${DOCKER_PASS}"
             }
         }
 
@@ -71,23 +57,20 @@ pipeline {
                 sh "podman push ${IMAGE_NAME}:${IMAGE_TAG}"
             }
         }
-        
+
         stage('Image Security Scan') {
             steps {
-                script {
-                    def imageTag = "${DOCKER_IMAGE}:${env.BUILD_NUMBER}"
-                    sh "trivy image --remote --severity HIGH,CRITICAL ${imageTag}"
-                }
+                sh "trivy image --remote --severity HIGH,CRITICAL ${IMAGE_NAME}:${IMAGE_TAG}"
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
                 withCredentials([file(credentialsId: 'KUBE-CONFIG', variable: 'KUBECONFIG')]) {
-                    sh """
+                    sh '''
                         kubectl apply -f k8s/deployment.yaml
                         kubectl rollout status deployment/sample-app
-                    """
+                    '''
                 }
             }
         }
@@ -95,9 +78,7 @@ pipeline {
         stage('Rollback (Optional)') {
             steps {
                 input message: 'Rollback to previous version?', ok: 'Rollback'
-                sh """
-                    helm rollback sample-app <REVISION>
-                """
+                sh "helm rollback sample-app <REVISION>"
             }
         }
     }
