@@ -44,7 +44,7 @@ pipeline {
             steps {
                 sh '''
                 podman --version
-                podman build --log-level=debug --root /var/lib/containers/storage -t ${IMAGE_NAME}:${IMAGE_TAG} -f Devops-App/Dockerfile Devops-App
+                sudo podman build --storage-driver=vfs -t mohithkumar96/devops-app:1.0 -f Devops-App/Dockerfile Devops-App
               '''
             }
         }
