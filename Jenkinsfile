@@ -32,10 +32,7 @@ pipeline {
         stage('Docker Build & Push') {
             steps {
                 script {
-                    sh """
-                    docker login -u $DOCKER_USER -p $DOCKER_PASS
-                    docker pull ${DOCKER_IMAGE}
-                    """
+                    sh "podman build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Devops-App/Dockerfile Devops-App"
                 }
             }
         }
