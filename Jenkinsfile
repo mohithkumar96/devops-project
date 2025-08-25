@@ -43,8 +43,8 @@ pipeline {
         stage('Podman Build') {
             steps {
                 sh '''
-                podman --version
-                podman build --log-level=debug --root /var/lib/containers/storage -t ${IMAGE_NAME}:${IMAGE_TAG} -f Devops-App/Dockerfile Devops-App
+                apt-get update -y && apt-get install -y buildah
+                buildah bud -t ${IMAGE_NAME}:${IMAGE_TAG} -f Devops-App/Dockerfile Devops-App
               '''
             }
         }
