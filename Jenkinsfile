@@ -6,9 +6,7 @@ pipeline {
         IMAGE_NAME = "mohithkumar96/devops-app"
         IMAGE_TAG = "1.0"
         DOCKER_HOST = "tcp://host.docker.internal:2375"
-        KUBECONFIG = "/var/jenkins_home/.kube/config"
         K8S_API = "https://kubernetes.docker.internal:6443" // Replace with your API server URL
-        K8S_TOKEN = credentials('k8s-token')
     }
 
     stages {
@@ -59,12 +57,13 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
-                sh '''
-                kubectl --server=https://kubernetes.docker.internal:6443 \
-                        --token=${K8S_TOKEN} \
-                        --insecure-skip-tls-verify=true \
-                        apply -f k8s-manifests/
-                '''
+                    sh '''
+                    kubectl --server=https://kubernetes.docker.internal:6443 \
+                            --token=$K8S_TOKEN \
+                            --insecure-skip-tls-verify=true \
+                            apply -f k8s-manifests/
+                    '''
+                } // <-- closes withCredentials
             }
         }
     }
@@ -81,4 +80,3 @@ pipeline {
         }
     }
 }
-
