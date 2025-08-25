@@ -3,6 +3,7 @@ pipeline {
     environment {
         // Define environment variables
         DOCKER_IMAGE = "mohithkumar96/devops-app"
+        IMAGE_TAG = "1.0"
         KUBECONFIG_FILE = credentials('kubeconfig')  // Jenkins credential with kubeconfig
         DOCKER_USER = "mohithkumar96"
         DOCKER_PASS = "dckr_pat_tLTlPEGLKJctsi0_83V7nE4ksLM"
