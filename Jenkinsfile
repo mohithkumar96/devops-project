@@ -7,7 +7,6 @@ pipeline {
         IMAGE_TAG = "1.0"
     }
 
-    stages {   // <-- all stages must be inside this
         stage('Checkout SCM') {
             steps {
                 git branch: 'main',
