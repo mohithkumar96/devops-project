@@ -44,7 +44,7 @@ pipeline {
             steps {
                 sh '''
                 apt-get update -y && apt-get install -y buildah
-                buildah bud -t ${IMAGE_NAME}:${IMAGE_TAG} -f Devops-App/Dockerfile Devops-App
+                buildah --storage-driver=vfs bud -t mohithkumar96/devops-app:1.0 -f Devops-App/Dockerfile Devops-App
               '''
             }
         }
