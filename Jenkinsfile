@@ -7,6 +7,8 @@ pipeline {
         IMAGE_TAG = "1.0"
         DOCKER_HOST = "tcp://host.docker.internal:2375"
         KUBECONFIG = "/var/jenkins_home/.kube/config"
+        K8S_API = "https://kubernetes.docker.internal:6443" // Replace with your API server URL
+        K8S_TOKEN = credentials('k8s-token')
     }
 
     stages {
