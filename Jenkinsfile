@@ -27,18 +27,21 @@ pipeline {
 
     
 
-        stage('Static Analysis') {
-            parallel {
-                stage('Terraform Security Scan') {
-                    steps {
-                        sh """
-                        mkdir -p ${WORKSPACE}/bin
-                        curl -sSL https://github.com/aquasecurity/tfsec/releases/latest/download/tfsec-linux-amd64 \
-                          -o ${WORKSPACE}/bin/tfsec
-                        chmod +x ${WORKSPACE}/bin/tfsec
-                        ${WORKSPACE}/bin/tfsec terraform || echo 'No tfsec issues found'
-                        """
-                    }
+         stage('Terraform Static Analysis') {
+            steps {
+                script {
+                    def tfsecPath = "${env.WORKSPACE}/bin/tfsec"
+                    sh """
+                    mkdir -p ${env.WORKSPACE}/bin
+                    if [ ! -f ${tfsecPath} ]; then
+                        curl -sSL https://github.com/aquasecurity/tfsec/releases/latest/download/tfsec-linux-amd64 -o ${tfsecPath}
+                        chmod +x ${tfsecPath}
+                    fi
+                    ${tfsecPath} terraform || echo 'No issues found'
+                    """
+                }
+            }
+        }
                 }
                 stage('Trivy Pre-Download') {
                     steps {
@@ -64,12 +67,15 @@ pipeline {
             }
         }
 
-        stage('Trivy Scan') {
+        tage('Trivy Scan') {
             steps {
-                sh """
-                ${WORKSPACE}/bin/trivy image --exit-code 0 --severity LOW,MEDIUM ${IMAGE_NAME}:${IMAGE_TAG}
-                ${WORKSPACE}/bin/trivy image --exit-code 1 --severity HIGH,CRITICAL ${IMAGE_NAME}:${IMAGE_TAG} || true
-                """
+                script {
+                    sh """
+                    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b ./bin
+                    ./bin/trivy image --exit-code 0 --severity LOW,MEDIUM ${IMAGE_NAME}:${IMAGE_TAG}
+                    ./bin/trivy image --exit-code 1 --severity HIGH,CRITICAL ${IMAGE_NAME}:${IMAGE_TAG} || true
+                    """
+                }
             }
         }
 
