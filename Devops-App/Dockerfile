@@ -1,4 +1,4 @@
-# Use an official Python runtime as a parent image
+# Use an official Python runtime
 FROM python:3.11-slim
 
 # Set working directory
@@ -18,3 +18,4 @@ EXPOSE 5000
 
 # Command to run the app
 CMD ["python", "app.py"]
+
