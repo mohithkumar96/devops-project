@@ -9,7 +9,8 @@ pipeline {
 
     environment {
         REGISTRY = "docker.io"
-        IMAGE_NAME = "mohithkumar96/devops-app:latest"
+        IMAGE_NAME = "mohithkumar96/devops-app"
+        IMAGE_TAG = "latest"
         DOCKER_HOST = "tcp://host.docker.internal:2375"
         K8S_API = "https://kubernetes.docker.internal:6443"
         K8S_TOKEN = credentials('k8s-token')
