@@ -44,6 +44,18 @@ pipeline {
             }
         }
 
+        stage('Trivy Scan') {
+            steps {
+                script {
+                    sh """
+                    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
+                    ./trivy image --exit-code 0 --severity LOW,MEDIUM ${IMAGE_NAME}:${IMAGE_TAG}
+                    ./trivy image --exit-code 1 --severity HIGH,CRITICAL ${IMAGE_NAME}:${IMAGE_TAG} || true
+                    """
+                }
+            }
+        }
+
         stage('Create Namespaces') {
             steps {
                 sh """
@@ -57,7 +69,9 @@ pipeline {
         stage('Deploy to Dev') {
             steps {
                 sh """
-                kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=dev --insecure-skip-tls-verify=true apply -f k8s-manifests/
+                kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=dev --insecure-skip-tls-verify=true apply -f k8s-manifests/deployment.yaml
+                kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=dev --insecure-skip-tls-verify=true apply -f k8s-manifests/service.yaml
+                kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=dev --insecure-skip-tls-verify=true apply -f k8s-manifests/ingress.yaml
                 """
             }
         }
@@ -66,7 +80,9 @@ pipeline {
             steps {
                 input message: 'Approve deployment to staging?', ok: 'Deploy'
                 sh """
-                kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=staging --insecure-skip-tls-verify=true apply -f k8s-manifests/
+                kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=staging --insecure-skip-tls-verify=true apply -f k8s-manifests/deployment.yaml
+                kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=staging --insecure-skip-tls-verify=true apply -f k8s-manifests/service.yaml
+                kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=staging --insecure-skip-tls-verify=true apply -f k8s-manifests/ingress.yaml
                 """
             }
         }
@@ -75,7 +91,9 @@ pipeline {
             steps {
                 input message: 'Approve deployment to production?', ok: 'Deploy'
                 sh """
-                kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=prod --insecure-skip-tls-verify=true apply -f k8s-manifests/
+                kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=prod --insecure-skip-tls-verify=true apply -f k8s-manifests/deployment.yaml
+                kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=prod --insecure-skip-tls-verify=true apply -f k8s-manifests/service.yaml
+                kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=prod --insecure-skip-tls-verify=true apply -f k8s-manifests/ingress.yaml
                 """
             }
         }
@@ -87,15 +105,8 @@ pipeline {
             steps {
                 input message: 'Rollback to previous version?', ok: 'Rollback'
                 script {
-                    // Docker rollback
                     sh "docker pull ${IMAGE_NAME}:${params.ROLLBACK_TAG}"
                     sh "kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=prod --insecure-skip-tls-verify=true set image deployment/devops-app devops-app=${IMAGE_NAME}:${params.ROLLBACK_TAG}"
-
-                    // Helm rollback (if using Helm)
-                    // sh "helm rollback my-release 1 --namespace prod"
-
-                    // Database rollback placeholder
-                    // sh "./scripts/db_rollback.sh ${params.ROLLBACK_TAG}"
                 }
             }
         }
@@ -113,5 +124,3 @@ pipeline {
         }
     }
 }
-
-
