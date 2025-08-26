@@ -23,6 +23,20 @@ pipeline {
             }
         }
 
+
+        stage('Fetch Jenkins SA Token') {
+            steps {
+                script {
+                    // Fetch the service account token dynamically
+                    env.K8S_TOKEN = sh(
+                        script: "kubectl get secret \$(kubectl get sa jenkins-sa -n dev -o jsonpath='{.secrets[0].name}') -n dev -o jsonpath='{.data.token}' | base64 --decode",
+                        returnStdout: true
+                    ).trim()
+                    echo "Fetched Jenkins SA token successfully"
+                }
+            }
+        }
+
         stage('Terraform Static Analysis') {
             steps {
                 script {
