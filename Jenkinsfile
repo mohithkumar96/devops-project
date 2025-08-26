@@ -25,9 +25,7 @@ pipeline {
             }
         }
 
-    
-
-         stage('Terraform Static Analysis') {
+        stage('Terraform Static Analysis') {
             steps {
                 script {
                     def tfsecPath = "${env.WORKSPACE}/bin/tfsec"
@@ -42,15 +40,13 @@ pipeline {
                 }
             }
         }
-                }
-                stage('Trivy Pre-Download') {
-                    steps {
-                        sh """
-                        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-                          | sh -s -- -b ${WORKSPACE}/bin
-                        """
-                    }
-                }
+
+        stage('Trivy Pre-Download') {
+            steps {
+                sh """
+                curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+                  | sh -s -- -b ${WORKSPACE}/bin
+                """
             }
         }
 
@@ -67,75 +63,70 @@ pipeline {
             }
         }
 
-        tage('Trivy Scan') {
+        stage('Trivy Scan') {
             steps {
-                script {
-                    sh """
-                    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b ./bin
-                    ./bin/trivy image --exit-code 0 --severity LOW,MEDIUM ${IMAGE_NAME}:${IMAGE_TAG}
-                    ./bin/trivy image --exit-code 1 --severity HIGH,CRITICAL ${IMAGE_NAME}:${IMAGE_TAG} || true
-                    """
-                }
+                sh """
+                ${WORKSPACE}/bin/trivy image --exit-code 0 --severity LOW,MEDIUM ${IMAGE_NAME}:${IMAGE_TAG}
+                ${WORKSPACE}/bin/trivy image --exit-code 1 --severity HIGH,CRITICAL ${IMAGE_NAME}:${IMAGE_TAG} || true
+                """
             }
         }
 
         stage('Prepare Namespaces') {
             steps {
-                sh """
-                for ns in ${K8S_NAMESPACE_DEV} ${K8S_NAMESPACE_STAGING} ${K8S_NAMESPACE_PROD}; do
-                    kubectl --server=${K8S_API} --token=${K8S_TOKEN} --insecure-skip-tls-verify=true \
-                    apply -f - <<EOF
-                    apiVersion: v1
-                    kind: Namespace
-                    metadata:
-                      name: $ns
-                    EOF
-                done
-                """
+                withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
+                    sh """
+                    for ns in ${K8S_NAMESPACE_DEV} ${K8S_NAMESPACE_STAGING} ${K8S_NAMESPACE_PROD}; do
+                        kubectl --server=${K8S_API} --token=${K8S_TOKEN} --insecure-skip-tls-verify=true apply -f - <<EOF
+                        apiVersion: v1
+                        kind: Namespace
+                        metadata:
+                          name: $ns
+                        EOF
+                    done
+                    """
+                }
             }
         }
 
         stage('Deploy to Dev') {
             steps {
-                sh """
-                kubectl --server=${K8S_API} --token=${K8S_TOKEN} -n ${K8S_NAMESPACE_DEV} --insecure-skip-tls-verify=true \
-                  apply -f k8s-manifests/deployment.yaml --validate=false
-                kubectl --server=${K8S_API} --token=${K8S_TOKEN} -n ${K8S_NAMESPACE_DEV} --insecure-skip-tls-verify=true \
-                  apply -f k8s-manifests/service.yaml --validate=false
-                kubectl --server=${K8S_API} --token=${K8S_TOKEN} -n ${K8S_NAMESPACE_DEV} --insecure-skip-tls-verify=true \
-                  apply -f k8s-manifests/ingress-dev.yaml --validate=false
-                kubectl rollout status deployment/devops-app -n ${K8S_NAMESPACE_DEV}
-                """
+                withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
+                    sh """
+                    kubectl --server=${K8S_API} --token=${K8S_TOKEN} -n ${K8S_NAMESPACE_DEV} --insecure-skip-tls-verify=true apply -f k8s-manifests/deployment.yaml --validate=false
+                    kubectl --server=${K8S_API} --token=${K8S_TOKEN} -n ${K8S_NAMESPACE_DEV} --insecure-skip-tls-verify=true apply -f k8s-manifests/service.yaml --validate=false
+                    kubectl --server=${K8S_API} --token=${K8S_TOKEN} -n ${K8S_NAMESPACE_DEV} --insecure-skip-tls-verify=true apply -f k8s-manifests/ingress-dev.yaml --validate=false
+                    kubectl rollout status deployment/devops-app -n ${K8S_NAMESPACE_DEV}
+                    """
+                }
             }
         }
 
         stage('Deploy to Staging') {
             steps {
                 input message: 'Approve deployment to staging?', ok: 'Deploy'
-                sh """
-                kubectl --server=${K8S_API} --token=${K8S_TOKEN} -n ${K8S_NAMESPACE_STAGING} --insecure-skip-tls-verify=true \
-                  apply -f k8s-manifests/deployment.yaml --validate=false
-                kubectl --server=${K8S_API} --token=${K8S_TOKEN} -n ${K8S_NAMESPACE_STAGING} --insecure-skip-tls-verify=true \
-                  apply -f k8s-manifests/service.yaml --validate=false
-                kubectl --server=${K8S_API} --token=${K8S_TOKEN} -n ${K8S_NAMESPACE_STAGING} --insecure-skip-tls-verify=true \
-                  apply -f k8s-manifests/ingress-staging.yaml --validate=false
-                kubectl rollout status deployment/devops-app -n ${K8S_NAMESPACE_STAGING}
-                """
+                withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
+                    sh """
+                    kubectl --server=${K8S_API} --token=${K8S_TOKEN} -n ${K8S_NAMESPACE_STAGING} --insecure-skip-tls-verify=true apply -f k8s-manifests/deployment.yaml --validate=false
+                    kubectl --server=${K8S_API} --token=${K8S_TOKEN} -n ${K8S_NAMESPACE_STAGING} --insecure-skip-tls-verify=true apply -f k8s-manifests/service.yaml --validate=false
+                    kubectl --server=${K8S_API} --token=${K8S_TOKEN} -n ${K8S_NAMESPACE_STAGING} --insecure-skip-tls-verify=true apply -f k8s-manifests/ingress-staging.yaml --validate=false
+                    kubectl rollout status deployment/devops-app -n ${K8S_NAMESPACE_STAGING}
+                    """
+                }
             }
         }
 
         stage('Deploy to Production') {
             steps {
                 input message: 'Approve deployment to production?', ok: 'Deploy'
-                sh """
-                kubectl --server=${K8S_API} --token=${K8S_TOKEN} -n ${K8S_NAMESPACE_PROD} --insecure-skip-tls-verify=true \
-                  apply -f k8s-manifests/deployment.yaml --validate=false
-                kubectl --server=${K8S_API} --token=${K8S_TOKEN} -n ${K8S_NAMESPACE_PROD} --insecure-skip-tls-verify=true \
-                  apply -f k8s-manifests/service.yaml --validate=false
-                kubectl --server=${K8S_API} --token=${K8S_TOKEN} -n ${K8S_NAMESPACE_PROD} --insecure-skip-tls-verify=true \
-                  apply -f k8s-manifests/ingress-prod.yaml --validate=false
-                kubectl rollout status deployment/devops-app -n ${K8S_NAMESPACE_PROD}
-                """
+                withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
+                    sh """
+                    kubectl --server=${K8S_API} --token=${K8S_TOKEN} -n ${K8S_NAMESPACE_PROD} --insecure-skip-tls-verify=true apply -f k8s-manifests/deployment.yaml --validate=false
+                    kubectl --server=${K8S_API} --token=${K8S_TOKEN} -n ${K8S_NAMESPACE_PROD} --insecure-skip-tls-verify=true apply -f k8s-manifests/service.yaml --validate=false
+                    kubectl --server=${K8S_API} --token=${K8S_TOKEN} -n ${K8S_NAMESPACE_PROD} --insecure-skip-tls-verify=true apply -f k8s-manifests/ingress-prod.yaml --validate=false
+                    kubectl rollout status deployment/devops-app -n ${K8S_NAMESPACE_PROD}
+                    """
+                }
             }
         }
     }
