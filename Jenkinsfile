@@ -25,20 +25,7 @@ pipeline {
             }
         }
 
-        stage('Fetch Jenkins SA Token') {
-            steps {
-                script {
-                    env.K8S_TOKEN = sh(
-                        script: """
-                        kubectl get secret \$(kubectl get sa jenkins-sa -n ${K8S_NAMESPACE_DEV} -o jsonpath='{.secrets[0].name}') \
-                        -n ${K8S_NAMESPACE_DEV} -o jsonpath='{.data.token}' | base64 --decode
-                        """,
-                        returnStdout: true
-                    ).trim()
-                    echo "Fetched Jenkins SA token successfully"
-                }
-            }
-        }
+    
 
         stage('Static Analysis') {
             parallel {
