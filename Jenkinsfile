@@ -1,10 +1,14 @@
 pipeline {
     agent any
 
+    parameters {
+        string(name: 'IMAGE_TAG', defaultValue: '1.0', description: 'Docker image tag for this deployment')
+    }
+
     environment {
         REGISTRY = "docker.io"
         IMAGE_NAME = "mohithkumar96/devops-app"
-        IMAGE_TAG = "1.0"
+        IMAGE_TAG = "${params.IMAGE_TAG}"
         DOCKER_HOST = "tcp://host.docker.internal:2375"
         K8S_API = "https://kubernetes.docker.internal:6443"
         K8S_TOKEN = credentials('k8s-token')
@@ -72,6 +76,7 @@ pipeline {
                 kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=dev --insecure-skip-tls-verify=true apply -f k8s-manifests/deployment.yaml
                 kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=dev --insecure-skip-tls-verify=true apply -f k8s-manifests/service.yaml
                 kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=dev --insecure-skip-tls-verify=true apply -f k8s-manifests/ingress-dev.yaml
+                kubectl rollout status deployment/devops-app -n dev
                 """
             }
         }
@@ -83,6 +88,7 @@ pipeline {
                 kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=staging --insecure-skip-tls-verify=true apply -f k8s-manifests/deployment.yaml
                 kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=staging --insecure-skip-tls-verify=true apply -f k8s-manifests/service.yaml
                 kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=staging --insecure-skip-tls-verify=true apply -f k8s-manifests/ingress-staging.yaml
+                kubectl rollout status deployment/devops-app -n staging
                 """
             }
         }
@@ -94,20 +100,8 @@ pipeline {
                 kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=prod --insecure-skip-tls-verify=true apply -f k8s-manifests/deployment.yaml
                 kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=prod --insecure-skip-tls-verify=true apply -f k8s-manifests/service.yaml
                 kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=prod --insecure-skip-tls-verify=true apply -f k8s-manifests/ingress-prod.yaml
+                kubectl rollout status deployment/devops-app -n prod
                 """
-            }
-        }
-
-        stage('Rollback Option') {
-            when {
-                expression { return params.ROLLBACK == true }
-            }
-            steps {
-                input message: 'Rollback to previous version?', ok: 'Rollback'
-                script {
-                    sh "docker pull ${IMAGE_NAME}:${params.ROLLBACK_TAG}"
-                    sh "kubectl --server=${K8S_API} --token=${K8S_TOKEN} --namespace=prod --insecure-skip-tls-verify=true set image deployment/devops-app devops-app=${IMAGE_NAME}:${params.ROLLBACK_TAG}"
-                }
             }
         }
     }
